@@ -52,7 +52,7 @@ namespace XenoTitle {
         static RoyalTitleDef GetModExt_XenoTitle(RoyalTitleDef title, Pawn_RoyaltyTracker tracker, Faction faction) {
             RoyalTitleDef currentTitle = title;
             XenotypeDef xenotype = tracker.pawn.genes.Xenotype;
-            while (currentTitle.GetNextTitle(faction) != null) {
+            while (currentTitle != null && currentTitle.GetNextTitle(faction) != null) {
                 var ext = currentTitle.GetModExtension<ModExtension_XenoTitle>();
                 if (ext == null)
                     return currentTitle;
