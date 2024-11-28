@@ -15,20 +15,22 @@ namespace XenoTitle {
         static XenoTitle() {
             Log.Message("[XenoTitle] Now active");
             var harmony = new Harmony("kaitorisenkou.XenoTitle");
-
-            harmony.Patch(
+            MethodInfo[] methodsPatch = { 
                 AccessTools.Method(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.GetTitleAwardedWhenUpdating), null, null),
-                null,
-                null,
-                new HarmonyMethod(typeof(XenoTitle), nameof(Patch_GetTitleAwardedWhenUpdating), null),
-                null
-                );
+                AccessTools.Method(typeof(Pawn_RoyaltyTracker), "UpdateRoyalTitle", null, null),
+                AccessTools.Method(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.CanUpdateTitle), null, null),
+            };
+            foreach(var i in methodsPatch) {
+                harmony.Patch(i, null, null,
+                    new HarmonyMethod(typeof(XenoTitle), nameof(Patch_RoyaltyTracker), null)
+                    , null);
+            }
 
             Log.Message("[XenoTitle] Harmony patch complete!");
         }
 
 
-        static IEnumerable<CodeInstruction> Patch_GetTitleAwardedWhenUpdating(IEnumerable<CodeInstruction> instructions, ILGenerator generator) {
+        static IEnumerable<CodeInstruction> Patch_RoyaltyTracker(IEnumerable<CodeInstruction> instructions, ILGenerator generator) {
             var instructionList = instructions.ToList();
             int patchCount = 0;
             MethodInfo targetInfo = AccessTools.Method(typeof(RoyalTitleDefExt), nameof(RoyalTitleDefExt.GetNextTitle));
@@ -40,11 +42,9 @@ namespace XenoTitle {
                         new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(XenoTitle),nameof(GetModExt_XenoTitle)))
                     });
                     patchCount++;
-                    if (patchCount > 1)
-                        break;
                 }
             }
-            if (patchCount < 2) {
+            if (patchCount < 1) {
                 Log.Error("[XenoTitle] Patch_GetTitleAwardedWhenUpdating seems failed!");
             }
             return instructionList;
@@ -52,14 +52,17 @@ namespace XenoTitle {
         static RoyalTitleDef GetModExt_XenoTitle(RoyalTitleDef title, Pawn_RoyaltyTracker tracker, Faction faction) {
             RoyalTitleDef currentTitle = title;
             XenotypeDef xenotype = tracker.pawn.genes.Xenotype;
-            while (currentTitle != null && currentTitle.GetNextTitle(faction) != null) {
+            while (currentTitle != null) {
                 var ext = currentTitle.GetModExtension<ModExtension_XenoTitle>();
                 if (ext == null)
                     return currentTitle;
                 if (ext.IsAllowed(xenotype)) {
                     return currentTitle;
                 }
-                currentTitle = currentTitle.GetNextTitle(faction);
+                var nextTitle = currentTitle.GetNextTitle(faction);
+                if (nextTitle == null)
+                    return currentTitle;
+                currentTitle = nextTitle;
             }
             return currentTitle;
         }
