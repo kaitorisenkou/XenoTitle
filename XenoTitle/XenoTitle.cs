@@ -34,12 +34,14 @@ namespace XenoTitle {
             var instructionList = instructions.ToList();
             int patchCount = 0;
             MethodInfo targetInfo = AccessTools.Method(typeof(RoyalTitleDefExt), nameof(RoyalTitleDefExt.GetNextTitle));
+            //MethodInfo insertInfo1 = AccessTools.Method(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.GetCurrentTitle));
+            MethodInfo insertInfo2 = AccessTools.Method(typeof(XenoTitle), nameof(GetModExt_XenoTitle));
             for (int i = 0; i < instructionList.Count; i++) {
                 if (instructionList[i].opcode == OpCodes.Call && (MethodInfo)instructionList[i].operand == targetInfo) {
-                    instructionList.InsertRange(i + 1, new CodeInstruction[]{
+                    instructionList.RemoveAt(i);
+                    instructionList.InsertRange(i, new CodeInstruction[]{
                         new CodeInstruction(OpCodes.Ldarg_0),
-                        new CodeInstruction(OpCodes.Ldarg_1),
-                        new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(XenoTitle),nameof(GetModExt_XenoTitle)))
+                        new CodeInstruction(OpCodes.Call, insertInfo2)
                     });
                     patchCount++;
                 }
@@ -49,8 +51,12 @@ namespace XenoTitle {
             }
             return instructionList;
         }
-        static RoyalTitleDef GetModExt_XenoTitle(RoyalTitleDef title, Pawn_RoyaltyTracker tracker, Faction faction) {
-            RoyalTitleDef currentTitle = title;
+        static RoyalTitleDef GetModExt_XenoTitle(RoyalTitleDef title, Faction faction, Pawn_RoyaltyTracker tracker) {
+            var currentExt = title?.GetModExtension<ModExtension_XenoTitle>();
+            if (currentExt != null && currentExt.noFurtherTitles) {
+                return null;
+            }
+            RoyalTitleDef currentTitle = title.GetNextTitle(faction);
             XenotypeDef xenotype = tracker.pawn.genes.Xenotype;
             while (currentTitle != null) {
                 var ext = currentTitle.GetModExtension<ModExtension_XenoTitle>();
@@ -70,6 +76,7 @@ namespace XenoTitle {
     public class ModExtension_XenoTitle : DefModExtension {
         public List<XenotypeDef> xenotypeDefs = null;
         public bool isDenylist = false;
+        public bool noFurtherTitles = false;
 
         public bool IsAllowed(XenotypeDef xenotype) {
             if (xenotype == null) return false;
